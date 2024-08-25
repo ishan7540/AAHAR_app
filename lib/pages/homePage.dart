@@ -39,7 +39,7 @@ class MyHomePage extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  firsTile(),
+                  FirstTile(),
                   SecondTile(),
                   thirdTile(),
                 ],

@@ -16,7 +16,8 @@ class thirdTile extends StatelessWidget {
         height: 200,
         width: 400,
         child: const Text("  Community ➔ ",
-            style: TextStyle(fontFamily: 'Coolvetica', fontSize: 28)),
+            style: TextStyle(
+                fontFamily: 'Coolvetica', fontSize: 28, color: Colors.black)),
       ),
     );
   }

@@ -56,6 +56,7 @@ dependencies:
   isar_flutter_libs:
     version: ^3.1.8
     hosted: https://pub.isar-community.dev/
+  http: ^1.2.2
 
 # Uncomment this for publishing FLOSS variant
 # dependency_overrides:
@@ -95,14 +96,22 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/
+    
+
     - assets/images/
     - assets/icons/
     - lib/assets/images/AAHAR_logo.png
     - lib/assets/images/Barley.png
-    - lib/assets/images/Virus.png
+    - lib/assets/images/Virus@3x.png
     - lib/assets/images/Natural Food@2x.png
     - lib/assets/images/Group 116.png
+    - assets/images/sun.png
+    - assets/images/thunder.png
+    - assets/images/snow.png
+    - assets/images/cloud.png
+    - assets/images/fog.png
+    - lib/assets/images/Right Arrow@3x.png
+
   fonts:
     - family: Coolvetica
       fonts:
