@@ -239,32 +239,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               children: pages,
             ),
           ),
-          bottomNavigationBar: NavigationBar(
-            onDestinationSelected: (int index) => changeTabIndex(index),
-            selectedIndex: tabIndex,
-            destinations: [
-              NavigationDestination(
-                icon: const Icon(IconsaxPlusLinear.cloud_sunny),
-                selectedIcon: const Icon(IconsaxPlusBold.cloud_sunny),
-                label: 'name'.tr,
-              ),
-              NavigationDestination(
-                icon: const Icon(IconsaxPlusLinear.buildings),
-                selectedIcon: const Icon(IconsaxPlusBold.buildings),
-                label: 'cities'.tr,
-              ),
-              NavigationDestination(
-                icon: const Icon(IconsaxPlusLinear.map),
-                selectedIcon: const Icon(IconsaxPlusBold.map),
-                label: 'map'.tr,
-              ),
-              NavigationDestination(
-                icon: const Icon(IconsaxPlusLinear.category),
-                selectedIcon: const Icon(IconsaxPlusBold.category),
-                label: 'settings_full'.tr,
-              ),
-            ],
-          ),
           floatingActionButton: tabIndex == 1
               ? FloatingActionButton(
                   onPressed: () => showModalBottomSheet(

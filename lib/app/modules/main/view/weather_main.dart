@@ -26,7 +26,7 @@ class _WeatherPageState extends State<WeatherPage> {
     return RefreshIndicator(
       onRefresh: () async {
         await weatherController.deleteAll(false);
-        await weatherController.setLocation();
+
         setState(() {});
       },
       child: Padding(

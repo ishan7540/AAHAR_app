@@ -7,7 +7,7 @@ final ThemeData baseLigth = ThemeData.light(useMaterial3: true);
 final ThemeData baseDark = ThemeData.dark(useMaterial3: true);
 
 const Color lightColor = Colors.white;
-const Color darkColor = Color.fromRGBO(30, 30, 30, 1);
+const Color darkColor = Color.fromRGBO(34, 34, 34, 1);
 const Color oledColor = Colors.black;
 
 ColorScheme colorSchemeLight = ColorScheme.fromSeed(
@@ -52,8 +52,9 @@ ThemeData lightTheme(
     scaffoldBackgroundColor: color,
     cardTheme: baseLigth.cardTheme.copyWith(
       color: color,
-      surfaceTintColor:
-          color == oledColor ? Colors.transparent : colorScheme?.surfaceTint,
+      surfaceTintColor: color == const Color.fromARGB(255, 234, 225, 225)
+          ? Colors.transparent
+          : colorScheme?.surfaceTint,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
       ),

@@ -98,3 +98,12 @@ flutter:
     - assets/
     - assets/images/
     - assets/icons/
+    - lib/assets/images/AAHAR_logo.png
+    - lib/assets/images/Barley.png
+    - lib/assets/images/Virus.png
+    - lib/assets/images/Natural Food@2x.png
+    - lib/assets/images/Group 116.png
+  fonts:
+    - family: Coolvetica
+      fonts:
+        - asset: lib/assets/fonts/coolvetica rg.otf

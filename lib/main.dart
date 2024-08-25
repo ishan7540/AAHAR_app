@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'pages/homePage.dart';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/foundation.dart';
@@ -343,14 +345,7 @@ class _MyAppState extends State<MyApp> {
             supportedLocales:
                 appLanguages.map((e) => e['locale'] as Locale).toList(),
             debugShowCheckedModeBanner: false,
-            home: settings.onboard
-                ? (locationCache.city == null) ||
-                        (locationCache.district == null) ||
-                        (locationCache.lat == null) ||
-                        (locationCache.lon == null)
-                    ? const SelectGeolocation(isStart: true)
-                    : const HomePage()
-                : const OnBording(),
+            home: const MyHomePage(),
             title: 'Rain',
           );
         },
