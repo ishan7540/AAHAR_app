@@ -1,15 +1,69 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:aahar_app/theme.dart';
-import 'package:aahar_app/models/npk_result.dart';
+import 'package:aahar_app/services/api_service.dart';
 
-class NpkRecommendationScreen extends StatelessWidget {
-  const NpkRecommendationScreen({super.key});
+class NpkRecommendationScreen extends StatefulWidget {
+  final String farmerName;
+  final String fieldName;
+
+  const NpkRecommendationScreen({
+    super.key,
+    required this.farmerName,
+    required this.fieldName,
+  });
+
+  @override
+  State<NpkRecommendationScreen> createState() =>
+      _NpkRecommendationScreenState();
+}
+
+class _NpkRecommendationScreenState extends State<NpkRecommendationScreen> {
+  Map<String, double>? _currentNpk;
+  Map<String, double>? _predictedNpk;
+  Map<String, double>? _inputFeatures;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final results = await Future.wait([
+        ApiService.getAllData(widget.farmerName, widget.fieldName),
+        ApiService.predict(widget.farmerName, widget.fieldName),
+      ]);
+      final allData = results[0];
+      final predictData = results[1];
+      if (mounted) {
+        setState(() {
+          _currentNpk = ApiService.extractCurrentNpk(
+              allData, widget.farmerName, widget.fieldName);
+          _predictedNpk = ApiService.extractPredictedNpk(predictData);
+          _inputFeatures = ApiService.extractInputFeatures(predictData);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final result = NpkResult.mock();
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -17,43 +71,81 @@ class NpkRecommendationScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('NPK Report / उर्वरक सलाह'),
+        actions: [
+          IconButton(
+            icon: Icon(_isLoading ? Icons.hourglass_top : Icons.refresh),
+            onPressed: _isLoading ? null : _fetchData,
+          ),
+        ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header
-              _buildHeader(context, result),
-              const SizedBox(height: 20),
-
-              // Nutrient Cards
-              _buildNutrientCard(context, result.nitrogen),
-              const SizedBox(height: 12),
-              _buildNutrientCard(context, result.phosphorus),
-              const SizedBox(height: 12),
-              _buildNutrientCard(context, result.potassium),
-              const SizedBox(height: 24),
-
-              // Historical NPK Trends Chart
-              _buildNpkTrendsChart(context),
-              const SizedBox(height: 24),
-
-              // Fertilizer Prescription
-              _buildFertilizerSection(context, result),
-              const SizedBox(height: 20),
-
-              // Expert Tip
-              _buildExpertTip(context, result.expertTip),
-            ],
-          ),
-        ),
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  color: AppTheme.primaryContainer,
+                ),
+              )
+            : _error != null
+                ? _buildErrorState(context)
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildHeader(context),
+                        const SizedBox(height: 20),
+                        _buildNutrientCard(context, 'N', 'Nitrogen (N)',
+                            'नाइट्रोजन'),
+                        const SizedBox(height: 12),
+                        _buildNutrientCard(context, 'P', 'Phosphorus (P)',
+                            'फास्फोरस'),
+                        const SizedBox(height: 12),
+                        _buildNutrientCard(context, 'K', 'Potassium (K)',
+                            'पोटेशियम'),
+                        const SizedBox(height: 24),
+                        _buildNpkBarChart(context),
+                        const SizedBox(height: 24),
+                        _buildWarningSystem(context),
+                      ],
+                    ),
+                  ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context, NpkResult result) {
+  Widget _buildErrorState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.cloud_off,
+              color: AppTheme.onSurfaceVariant, size: 40),
+          const SizedBox(height: 12),
+          Text('Could not load NPK data',
+              style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 16),
+          GestureDetector(
+            onTap: _fetchData,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryContainer.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text('Retry / पुनः प्रयास',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: AppTheme.primaryContainer,
+                      )),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -70,7 +162,7 @@ class NpkRecommendationScreen extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Aahar Soil Report',
+                  'Aahar NPK Report',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
@@ -80,7 +172,7 @@ class NpkRecommendationScreen extends StatelessWidget {
             ],
           ),
           Text(
-            'आहार मिट्टी रिपोर्ट',
+            'आहार एनपीके रिपोर्ट',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.white.withValues(alpha: 0.8),
                 ),
@@ -93,7 +185,7 @@ class NpkRecommendationScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              'Last updated: Today, 10:42 AM • ${result.sector}',
+              '${widget.farmerName} • Field ${widget.fieldName} • Live Data',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: Colors.white.withValues(alpha: 0.9),
                   ),
@@ -104,9 +196,14 @@ class NpkRecommendationScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildNutrientCard(BuildContext context, NutrientReading reading) {
-    final statusColor = _getStatusColor(reading.status);
-    final statusLabel = _getStatusLabel(reading.status);
+  Widget _buildNutrientCard(
+      BuildContext context, String key, String name, String nameHindi) {
+    final current = _currentNpk![key]!;
+    final predicted = _predictedNpk![key]!;
+    final devPercent = _getDeviationPercent(current, predicted);
+    final statusColor = _getDeviationColor(current, predicted);
+    final severity = _getDeviationSeverity(current, predicted);
+    final statusLabel = _getSeverityLabel(severity);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -133,17 +230,13 @@ class NpkRecommendationScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      reading.name,
-                      style:
-                          Theme.of(context).textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                    ),
-                    Text(
-                      reading.nameHindi,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
+                    Text(name,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(nameHindi,
+                        style: Theme.of(context).textTheme.bodySmall),
                   ],
                 ),
               ),
@@ -155,7 +248,7 @@ class NpkRecommendationScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  'Status: $statusLabel',
+                  statusLabel,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: statusColor,
                         fontWeight: FontWeight.w700,
@@ -165,7 +258,6 @@ class NpkRecommendationScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          // Progress bar
           Row(
             children: [
               Expanded(
@@ -176,11 +268,11 @@ class NpkRecommendationScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Current: ${reading.current.toStringAsFixed(0)} ${reading.unit}',
+                          'Current: ${current.toStringAsFixed(1)}',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                         Text(
-                          'Optimal: ${reading.optimal.toStringAsFixed(0)} ${reading.unit}',
+                          'Predicted: ${predicted.toStringAsFixed(1)}',
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: AppTheme.statusOptimal,
@@ -192,12 +284,22 @@ class NpkRecommendationScreen extends StatelessWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(6),
                       child: LinearProgressIndicator(
-                        value: (reading.percentage / 100).clamp(0.0, 1.0),
+                        value: predicted > 0
+                            ? (current / predicted).clamp(0.0, 1.5)
+                            : 0,
                         minHeight: 10,
                         backgroundColor: statusColor.withValues(alpha: 0.12),
                         valueColor:
                             AlwaysStoppedAnimation<Color>(statusColor),
                       ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Deviation: ${devPercent > 0 ? '+' : ''}${devPercent.toStringAsFixed(1)}%',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: statusColor,
+                            fontWeight: FontWeight.w600,
+                          ),
                     ),
                   ],
                 ),
@@ -209,7 +311,8 @@ class NpkRecommendationScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFertilizerSection(BuildContext context, NpkResult result) {
+  // ─── Current vs Predicted Bar Chart ───
+  Widget _buildNpkBarChart(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -222,222 +325,70 @@ class NpkRecommendationScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.medication,
-                  color: AppTheme.primaryContainer, size: 22),
-              const SizedBox(width: 10),
-              Text(
-                'Fertilizer Prescription',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ],
-          ),
-          Text(
-            'उर्वरक नुस्खा',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.onSurfaceVariant,
-                ),
-          ),
-          const SizedBox(height: 16),
-          ...result.fertilizers
-              .map((f) => _buildFertilizerRow(context, f)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFertilizerRow(
-      BuildContext context, FertilizerRecommendation fert) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryContainer.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.inventory_2,
-                  color: AppTheme.primaryContainer, size: 20),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${fert.name} / ${fert.nameHindi}',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  Text(
-                    'Target: ${fert.target}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              '${fert.amountKg.toStringAsFixed(0)} kg',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: AppTheme.primaryContainer,
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildExpertTip(BuildContext context, String tip) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.secondaryContainer.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppTheme.secondary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.lightbulb,
-                color: AppTheme.secondary, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Expert Tip',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: AppTheme.secondary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  tip,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        height: 1.5,
-                      ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Historical NPK Trends (6 months) ───
-  Widget _buildNpkTrendsChart(BuildContext context) {
-    // Mock 6-month data (Nov → Apr)
-    const nData = [210.0, 225.0, 218.0, 250.0, 235.0, 240.0];
-    const pData = [14.0, 16.0, 15.0, 19.0, 17.0, 18.0];
-    const kData = [20.0, 22.0, 21.0, 26.0, 24.0, 25.0];
-    const months = ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'];
-
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: AppTheme.subtleShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Title
-          Row(
-            children: [
-              const Icon(Icons.timeline,
+              const Icon(Icons.bar_chart,
                   color: AppTheme.primaryContainer, size: 22),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'NPK Trends / एनपीके रुझान',
+                  'Current vs Predicted / वर्तमान vs अनुमानित',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Last 6 months data / पिछले 6 महीनों का डेटा',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
           const SizedBox(height: 8),
-
-          // Legend
           Row(
             children: [
-              _buildLegendDot(
-                  context, 'Nitrogen (N)', const Color(0xFFE53935)),
+              _buildChartLegendDot(
+                  context, 'Current', const Color(0xFF1E88E5)),
               const SizedBox(width: 16),
-              _buildLegendDot(
-                  context, 'Phosphorus (P)', const Color(0xFF1E88E5)),
-              const SizedBox(width: 16),
-              _buildLegendDot(
-                  context, 'Potassium (K)', const Color(0xFFFB8C00)),
+              _buildChartLegendDot(
+                  context, 'Predicted', const Color(0xFF43A047)),
             ],
           ),
           const SizedBox(height: 20),
-
-          // Chart
           SizedBox(
-            height: 220,
-            child: LineChart(
-              LineChartData(
-                minY: 0,
-                maxY: 300,
-                clipData: const FlClipData.all(),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: 60,
-                  getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: AppTheme.outlineVariant.withValues(alpha: 0.3),
-                      strokeWidth: 1,
-                    );
-                  },
+            height: 200,
+            child: BarChart(
+              BarChartData(
+                alignment: BarChartAlignment.spaceEvenly,
+                maxY: _chartMaxY(),
+                barTouchData: BarTouchData(
+                  enabled: true,
+                  touchTooltipData: BarTouchTooltipData(
+                    tooltipRoundedRadius: 10,
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      final labels = ['N', 'P', 'K'];
+                      final type = rodIndex == 0 ? 'Current' : 'Predicted';
+                      return BarTooltipItem(
+                        '${labels[groupIndex]} $type\n${rod.toY.toStringAsFixed(1)}',
+                        TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      );
+                    },
+                  ),
                 ),
                 titlesData: FlTitlesData(
-                  topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
+                  show: true,
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      interval: 1,
-                      reservedSize: 30,
                       getTitlesWidget: (value, meta) {
+                        const labels = ['N', 'P', 'K'];
                         final idx = value.toInt();
-                        if (idx < 0 || idx >= months.length) {
+                        if (idx < 0 || idx >= labels.length) {
                           return const SizedBox.shrink();
                         }
                         return Padding(
                           padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            months[idx],
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(fontSize: 11),
-                          ),
+                          child: Text(labels[idx],
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelMedium
+                                  ?.copyWith(fontWeight: FontWeight.w700)),
                         );
                       },
                     ),
@@ -446,7 +397,6 @@ class NpkRecommendationScreen extends StatelessWidget {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 40,
-                      interval: 60,
                       getTitlesWidget: (value, meta) {
                         return Text(
                           value.toInt().toString(),
@@ -458,86 +408,28 @@ class NpkRecommendationScreen extends StatelessWidget {
                       },
                     ),
                   ),
+                  topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
                 ),
                 borderData: FlBorderData(show: false),
-                lineTouchData: LineTouchData(
-                  handleBuiltInTouches: true,
-                  touchTooltipData: LineTouchTooltipData(
-                    tooltipRoundedRadius: 12,
-                    getTooltipItems: (touchedSpots) {
-                      return touchedSpots.map((spot) {
-                        String label;
-                        switch (spot.barIndex) {
-                          case 0:
-                            label = 'N';
-                            break;
-                          case 1:
-                            label = 'P';
-                            break;
-                          case 2:
-                            label = 'K';
-                            break;
-                          default:
-                            label = '';
-                        }
-                        return LineTooltipItem(
-                          '$label: ${spot.y.toStringAsFixed(0)} kg/ha',
-                          TextStyle(
-                            color: spot.bar.color ?? Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
-                        );
-                      }).toList();
-                    },
-                  ),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  getDrawingHorizontalLine: (value) {
+                    return FlLine(
+                      color: AppTheme.outlineVariant.withValues(alpha: 0.25),
+                      strokeWidth: 1,
+                    );
+                  },
                 ),
-                lineBarsData: [
-                  // Nitrogen line (red)
-                  _buildLine(nData, const Color(0xFFE53935)),
-                  // Phosphorus line (blue) — scaled ×10 for visibility
-                  _buildLine(
-                      pData.map((v) => v * 10).toList(), const Color(0xFF1E88E5)),
-                  // Potassium line (orange) — scaled ×8 for visibility
-                  _buildLine(
-                      kData.map((v) => v * 8).toList(), const Color(0xFFFB8C00)),
+                barGroups: [
+                  _makeBarGroup(0, _currentNpk!['N']!, _predictedNpk!['N']!),
+                  _makeBarGroup(1, _currentNpk!['P']!, _predictedNpk!['P']!),
+                  _makeBarGroup(2, _currentNpk!['K']!, _predictedNpk!['K']!),
                 ],
-                // Optimal zone shading (240-280 for N)
-                rangeAnnotations: RangeAnnotations(
-                  horizontalRangeAnnotations: [
-                    HorizontalRangeAnnotation(
-                      y1: 240,
-                      y2: 280,
-                      color: AppTheme.statusOptimal.withValues(alpha: 0.07),
-                    ),
-                  ],
-                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Annotation
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline,
-                    size: 16, color: AppTheme.onSurfaceVariant),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Green zone = Optimal range  •  P & K values are scaled for readability',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppTheme.onSurfaceVariant,
-                        ),
-                  ),
-                ),
-              ],
             ),
           ),
         ],
@@ -545,79 +437,280 @@ class NpkRecommendationScreen extends StatelessWidget {
     );
   }
 
-  LineChartBarData _buildLine(List<double> data, Color color) {
-    return LineChartBarData(
-      spots: data
-          .asMap()
-          .entries
-          .map((e) => FlSpot(e.key.toDouble(), e.value))
-          .toList(),
-      isCurved: true,
-      curveSmoothness: 0.3,
-      color: color,
-      barWidth: 3,
-      isStrokeCapRound: true,
-      dotData: FlDotData(
-        show: true,
-        getDotPainter: (spot, percent, barData, index) {
-          return FlDotCirclePainter(
-            radius: 4,
-            color: Colors.white,
-            strokeWidth: 2.5,
-            strokeColor: color,
-          );
-        },
-      ),
-      belowBarData: BarAreaData(
-        show: true,
-        color: color.withValues(alpha: 0.06),
-      ),
+  BarChartGroupData _makeBarGroup(
+      int x, double current, double predicted) {
+    return BarChartGroupData(
+      x: x,
+      barRods: [
+        BarChartRodData(
+          toY: current,
+          color: const Color(0xFF1E88E5),
+          width: 20,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(6),
+            topRight: Radius.circular(6),
+          ),
+        ),
+        BarChartRodData(
+          toY: predicted,
+          color: const Color(0xFF43A047),
+          width: 20,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(6),
+            topRight: Radius.circular(6),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildLegendDot(BuildContext context, String label, Color color) {
+  double _chartMaxY() {
+    final values = [
+      _currentNpk!['N']!, _currentNpk!['P']!, _currentNpk!['K']!,
+      _predictedNpk!['N']!, _predictedNpk!['P']!, _predictedNpk!['K']!,
+    ];
+    final maxVal = values.reduce((a, b) => a > b ? a : b);
+    return (maxVal * 1.3).ceilToDouble();
+  }
+
+  Widget _buildChartLegendDot(
+      BuildContext context, String label, Color color) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 10,
           height: 10,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: AppTheme.onSurfaceVariant,
-                fontSize: 10,
-              ),
-        ),
+        Text(label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppTheme.onSurfaceVariant,
+                  fontSize: 10,
+                )),
       ],
     );
   }
 
-  Color _getStatusColor(NutrientStatus status) {
-    switch (status) {
-      case NutrientStatus.low:
-        return AppTheme.statusAlert;
-      case NutrientStatus.optimal:
-        return AppTheme.statusOptimal;
-      case NutrientStatus.high:
-        return AppTheme.statusWarning;
-    }
+  // ─── Actionable Warning System ───
+  Widget _buildWarningSystem(BuildContext context) {
+    final warnings = _generateWarnings();
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: AppTheme.subtleShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.health_and_safety,
+                  color: AppTheme.primaryContainer, size: 22),
+              const SizedBox(width: 10),
+              Text(
+                'Actionable Insights / कार्रवाई योग्य',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...warnings,
+        ],
+      ),
+    );
   }
 
-  String _getStatusLabel(NutrientStatus status) {
-    switch (status) {
-      case NutrientStatus.low:
-        return 'Low | कम';
-      case NutrientStatus.optimal:
-        return 'Optimal | अनुकूल';
-      case NutrientStatus.high:
-        return 'High | अधिक';
+  List<Widget> _generateWarnings() {
+    final warnings = <Widget>[];
+    final nutrients = ['N', 'P', 'K'];
+    final names = {'N': 'Nitrogen', 'P': 'Phosphorus', 'K': 'Potassium'};
+    final namesHindi = {
+      'N': 'नाइट्रोजन',
+      'P': 'फास्फोरस',
+      'K': 'पोटेशियम'
+    };
+    final fertilizers = {
+      'N': 'Urea (यूरिया)',
+      'P': 'DAP (डीएपी)',
+      'K': 'MOP (एमओपी)'
+    };
+
+    final rh = _inputFeatures?['RH2M'] ?? 0;
+    final dwsi = _inputFeatures?['DWSI'] ?? 0;
+
+    for (final n in nutrients) {
+      final current = _currentNpk![n]!;
+      final predicted = _predictedNpk![n]!;
+      final devPercent = _getDeviationPercent(current, predicted).abs();
+      final severity = _getDeviationSeverity(current, predicted);
+
+      if (severity == 'green') continue;
+
+      final isLow = current < predicted;
+      final direction = isLow ? 'low' : 'high';
+      final severityLabel = severity == 'red' ? 'critically' : 'moderately';
+      final colorLabel = severity == 'red' ? 'Red' : 'Yellow';
+      final warningColor =
+          severity == 'red' ? AppTheme.statusAlert : AppTheme.statusWarning;
+
+      String message =
+          'Warning: ${names[n]} is $severityLabel $direction ($colorLabel, ${devPercent.toStringAsFixed(0)}% off).';
+
+      if (isLow && rh > 50) {
+        message +=
+            ' High humidity detected (RH: ${rh.toStringAsFixed(0)}%) suggesting upcoming rain. Apply ${fertilizers[n]} before the rain to maximize absorption.';
+      } else if (isLow && dwsi < 1.0) {
+        message +=
+            ' Dry conditions detected (DWSI: ${dwsi.toStringAsFixed(2)}). Irrigate before applying ${fertilizers[n]} for better uptake.';
+      } else if (!isLow) {
+        message +=
+            ' Reduce ${names[n]?.toLowerCase()} application. Excess ${namesHindi[n]} can cause nutrient lockout and soil degradation.';
+      }
+
+      warnings.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: warningColor.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: warningColor.withValues(alpha: 0.15)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: warningColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    severity == 'red'
+                        ? Icons.warning_amber
+                        : Icons.info_outline,
+                    color: warningColor,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          height: 1.6,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (warnings.isEmpty) {
+      warnings.add(
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.statusOptimal.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.statusOptimal.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.check_circle,
+                    color: AppTheme.statusOptimal, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'All NPK levels are within optimal range (±10%). No immediate action needed.\nसभी एनपीके स्तर अनुकूल सीमा में हैं।',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.statusOptimal,
+                        height: 1.5,
+                      ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Weather context
+    if (_inputFeatures != null) {
+      warnings.add(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.cloud, size: 14, color: AppTheme.onSurfaceVariant),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Weather: RH ${rh.toStringAsFixed(0)}% • DWSI ${dwsi.toStringAsFixed(2)} • Data via Flask API',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppTheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        fontSize: 9,
+                      ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return warnings;
+  }
+
+  // ─── Deviation helpers ───
+  static double _getDeviationPercent(double current, double predicted) {
+    if (predicted == 0) return 0;
+    return ((current - predicted) / predicted) * 100;
+  }
+
+  static Color _getDeviationColor(double current, double predicted) {
+    final dev = _getDeviationPercent(current, predicted).abs();
+    if (dev <= 10) return AppTheme.statusOptimal;
+    if (dev <= 25) return AppTheme.statusWarning;
+    return AppTheme.statusAlert;
+  }
+
+  static String _getDeviationSeverity(double current, double predicted) {
+    final dev = _getDeviationPercent(current, predicted).abs();
+    if (dev <= 10) return 'green';
+    if (dev <= 25) return 'yellow';
+    return 'red';
+  }
+
+  static String _getSeverityLabel(String severity) {
+    switch (severity) {
+      case 'green':
+        return 'Optimal ✓';
+      case 'yellow':
+        return 'Caution ⚠';
+      case 'red':
+        return 'Critical ✕';
+      default:
+        return '';
     }
   }
 }

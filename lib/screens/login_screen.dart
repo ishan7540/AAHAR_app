@@ -11,20 +11,41 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _fieldController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
+  String? _errorMessage;
 
   void _handleLogin() {
-    setState(() => _isLoading = true);
-    // TODO: Replace with actual Firebase Auth
-    Future.delayed(const Duration(seconds: 1), () {
+    final name = _nameController.text.trim();
+    final field = _fieldController.text.trim();
+    final password = _passwordController.text;
+
+    if (name.isEmpty || field.isEmpty || password.isEmpty) {
+      setState(() => _errorMessage = 'Please fill in all fields');
+      return;
+    }
+
+    if (password != '12345') {
+      setState(() => _errorMessage = 'Invalid password');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
         setState(() => _isLoading = false);
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const MainShell()),
+          MaterialPageRoute(
+            builder: (_) => MainShell(farmerName: name, fieldName: field),
+          ),
         );
       }
     });
@@ -32,7 +53,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _nameController.dispose();
+    _fieldController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -91,13 +113,25 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
               ),
               const SizedBox(height: 32),
-              // Email field
+              // Name field
               TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
+                controller: _nameController,
+                textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
-                  labelText: 'Email / ईमेल',
-                  prefixIcon: Icon(Icons.email_outlined),
+                  labelText: 'Name / नाम',
+                  prefixIcon: Icon(Icons.person_outline),
+                  hintText: 'e.g. Jaspreet',
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Field name field
+              TextField(
+                controller: _fieldController,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(
+                  labelText: 'Field / खेत',
+                  prefixIcon: Icon(Icons.landscape_outlined),
+                  hintText: 'e.g. A',
                 ),
               ),
               const SizedBox(height: 16),
@@ -120,6 +154,29 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
+              // Error message
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.errorContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: AppTheme.error, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        _errorMessage!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.onErrorContainer,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               // Forgot password
               Align(

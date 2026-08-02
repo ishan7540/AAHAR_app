@@ -25,7 +25,14 @@ class _SignupScreenState extends State<SignupScreen> {
         setState(() => _isLoading = false);
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const MainShell()),
+          MaterialPageRoute(
+            builder: (_) => MainShell(
+              farmerName: _nameController.text.trim().isNotEmpty
+                  ? _nameController.text.trim()
+                  : 'Farmer',
+              fieldName: 'A',
+            ),
+          ),
         );
       }
     });
