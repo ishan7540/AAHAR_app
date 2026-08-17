@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:aahar_app/theme.dart';
 import 'package:aahar_app/screens/login_screen.dart';
+import 'package:aahar_app/services/rag_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables
+  await dotenv.load(fileName: '.env');
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -13,6 +19,10 @@ void main() {
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
+
+  // Start RAG indexing in background (non-blocking)
+  RagService.initialize();
+
   runApp(const AaharApp());
 }
 
