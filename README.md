@@ -1,4 +1,4 @@
-# AAHAR_APP (Krishi AI)
+# AAHAR_APP
 
 Aahar is a precision agriculture Flutter application designed to assist Indian farmers with actionable insights. This app features **Krishi AI**, an intelligent RAG-based chatbot that provides guidance on government farming schemes, crop rotation, and agricultural best practices.
 
